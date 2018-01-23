@@ -1,0 +1,107 @@
+Method 1(To execute background job in linux system)
+To add a new cron job to the crontab, type in :
+
+crontab -e(on linux terminal)
+
+Now execute the following command:
+
+*/2 * * * * /Desktop/downloads/auto_schedule.py
+
+Note:-
+
+* * * * * command to be executed
+- - - - -
+| | | | |
+| | | | ----- Day of week (0 - 7) (Sunday=0 or 7)
+| | | ------- Month (1 - 12)
+| | --------- Day of month (1 - 31)
+| ----------- Hour (0 - 23)
+------------- Minute (0 - 59)
+
+
+Method 2(To execute background job in django):-
+
+We have django-celery module to schedule background jobs using django framework.Celery uses broker like Rabbitmq,redis and using task queues execute 
+background jobs.
+
+from __future__ import absolute_import, unicode_literals
+
+# This will make sure the app is always imported when
+# Django starts so that shared_task will use this app.
+from .celery import app as celery_app
+
+
+__all__ = ['celery_app']
+(view raw__init__.py)
+
+
+
+from __future__ import absolute_import, unicode_literals
+from celery import task
+
+
+@task()
+def task_number_one():
+    # Do something...
+
+(view rawapp1_tasks.py)
+
+
+
+from __future__ import absolute_import, unicode_literals
+from celery import task
+
+
+@task()
+def task_number_two():
+    # Do another thing...
+(view rawapp2_tasks.py)
+
+
+from __future__ import absolute_import, unicode_literals
+import os
+
+from celery import Celery
+
+
+# set the default Django settings module for the 'celery' program.
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'proj.settings')
+
+app = Celery('proj')
+
+# Using a string here means the worker don't have to serialize
+# the configuration object to child processes.
+# - namespace='CELERY' means all celery-related configuration keys
+#   should have a `CELERY_` prefix.
+app.config_from_object('django.conf:settings', namespace='CELERY')
+
+# Load task modules from all registered Django app configs.
+app.autodiscover_tasks()
+
+@app.task(bind=True)
+def debug_task(self):
+    print('Request: {0!r}'.format(self.request))
+(view rawcelery.py)
+
+
+from celery.schedules import crontab
+
+# Celery application definition
+# http://docs.celeryproject.org/en/v4.0.2/userguide/configuration.html
+
+CELERY_BROKER_URL = 'redis://localhost:6379'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_TIMEZONE = ''
+CELERY_BEAT_SCHEDULE = {
+    'task-number-one': {
+        'task': 'app1.tasks.task_number_one',
+        'schedule': crontab(minute=59, hour=23)
+    },
+    'task-number-two': {
+        'task': 'app2.tasks.task_number_two',
+        'schedule': crontab(minute=0, hour='*/3,10-19')
+    }
+}
